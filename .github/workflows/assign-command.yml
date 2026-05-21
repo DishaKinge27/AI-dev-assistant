@@ -11,7 +11,9 @@ permissions:
 
 jobs:
   assign:
+    # Ignore pull request comments
     if: github.event.issue.pull_request == null
+
     runs-on: ubuntu-latest
 
     steps:
@@ -20,8 +22,17 @@ jobs:
 
         with:
           script: |
-            const comment = context.payload.comment.body.trim().toLowerCase();
-            const sender = context.payload.comment.user.login;
+            // Safety guard
+            if (!context.payload.comment) return;
+
+            const comment =
+              context.payload.comment.body
+                .trim()
+                .toLowerCase();
+
+            const sender =
+              context.payload.comment.user.login;
+
             const issue = context.payload.issue;
 
             // Ignore bots and maintainer
@@ -38,7 +49,7 @@ jobs:
             // Current assignees
             const assignees = issue.assignees || [];
 
-            // Check if assigned to someone else
+            // Already assigned to someone else
             const assignedToOthers = assignees.some(
               a => a.login !== sender
             );
@@ -52,6 +63,7 @@ jobs:
               await github.rest.issues.createComment({
                 ...context.repo,
                 issue_number: issue.number,
+
                 body: `Sorry @${sender} 👋
 
 This issue is already assigned to ${assignedUsers}.
@@ -63,15 +75,17 @@ Please choose another available issue 🚀`
             }
 
             // Already assigned to same user
-            const alreadyAssignedToSender = assignees.some(
-              a => a.login === sender
-            );
+            const alreadyAssignedToSender =
+              assignees.some(
+                a => a.login === sender
+              );
 
             if (alreadyAssignedToSender) {
 
               await github.rest.issues.createComment({
                 ...context.repo,
                 issue_number: issue.number,
+
                 body: `@${sender} you are already assigned to this issue ✅`
               });
 
@@ -87,20 +101,25 @@ Please choose another available issue 🚀`
                 assignee: sender
               });
 
-            // Ignore PRs and current issue
-            const otherAssignedIssues = openIssues.filter(
-              i => !i.pull_request && i.number !== issue.number
-            );
+            // Ignore pull requests and current issue
+            const otherAssignedIssues =
+              openIssues.filter(
+                i =>
+                  !i.pull_request &&
+                  i.number !== issue.number
+              );
 
             if (otherAssignedIssues.length > 0) {
 
-              const issueList = otherAssignedIssues
-                .map(i => `#${i.number}`)
-                .join(', ');
+              const issueList =
+                otherAssignedIssues
+                  .map(i => `#${i.number}`)
+                  .join(', ');
 
               await github.rest.issues.createComment({
                 ...context.repo,
                 issue_number: issue.number,
+
                 body: `Hi @${sender} 👋
 
 You already have assigned issue(s): ${issueList}
@@ -124,6 +143,7 @@ This helps keep contributions active and prevents issue blocking 🚀`
             await github.rest.issues.createComment({
               ...context.repo,
               issue_number: issue.number,
+
               body: `✅ Assigned to @${sender}
 
 Please complete this issue within 7 days.
